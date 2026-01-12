@@ -1,3 +1,7 @@
+## Shibuya Consumer Research
+
+AI-powered consumer research and signal intelligence across Reddit, app stores, Product Hunt, and more.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
