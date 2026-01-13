@@ -1,17 +1,16 @@
-import { db } from "@/lib/db";
-import { chatMessages } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { chatMessages } from '@/lib/db/schema';
+import { eq, asc } from 'drizzle-orm';
+import { errorResponse } from '@/lib/api/responses';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const conversationId = searchParams.get("conversationId");
+    const conversationId = searchParams.get('conversationId');
 
     if (!conversationId) {
-      return new Response(JSON.stringify({ error: "Conversation ID required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return errorResponse('Conversation ID required', 400);
     }
 
     const messages = await db
@@ -20,14 +19,9 @@ export async function GET(req: Request) {
       .where(eq(chatMessages.conversationId, conversationId))
       .orderBy(asc(chatMessages.createdAt));
 
-    return new Response(JSON.stringify({ messages }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ messages });
   } catch (error) {
-    console.error("Failed to fetch history:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to fetch history" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    console.error('Failed to fetch history:', error);
+    return errorResponse('Failed to fetch history', 500);
   }
 }

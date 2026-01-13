@@ -175,7 +175,7 @@ export default function Home() {
       {/* Knowledge Base */}
       <div className="mt-12">
         <h2 className="text-2xl font-bold mb-4 text-gray-900">Internal Knowledge</h2>
-        <p className="text-gray-600 mb-6">Upload your internal documents to power AI research with your organization's context</p>
+        <p className="text-gray-600 mb-6">Upload your internal documents to power AI research with your organization&apos;s context</p>
         <KnowledgePanel />
       </div>
     </main>

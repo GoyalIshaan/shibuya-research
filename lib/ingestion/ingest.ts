@@ -29,26 +29,25 @@ export class IngestService {
     ];
   }
 
-  async run(params: Record<string, any> = {}) {
+  async run(params: Record<string, unknown> = {}) {
     console.log('Starting ingestion run...');
     const ingestedSignals: Signal[] = [];
     const seenUrls = new Set<string>();
 
     // Use default config if params not provided
-    const config = {
-        reddit: params.reddit || MONITORING_CONFIG.reddit,
-        producthunt: params.producthunt || MONITORING_CONFIG.productHunt,
-        appstore: params.appstore || MONITORING_CONFIG.appStore,
-        playstore: params.playstore || MONITORING_CONFIG.playStore,
-        hackernews: params.hackernews || MONITORING_CONFIG.hackernews,
-        rssFeeds: params.rssFeeds || MONITORING_CONFIG.rssFeeds,
-        yc: params.yc || MONITORING_CONFIG.yc,
-        gdelt: params.gdelt || MONITORING_CONFIG.gdelt,
+    const config: Record<string, unknown> = {
+      reddit: params.reddit || MONITORING_CONFIG.reddit,
+      producthunt: params.producthunt || MONITORING_CONFIG.productHunt,
+      appstore: params.appstore || MONITORING_CONFIG.appStore,
+      playstore: params.playstore || MONITORING_CONFIG.playStore,
+      hackernews: params.hackernews || MONITORING_CONFIG.hackernews,
+      rssFeeds: params.rssFeeds || MONITORING_CONFIG.rssFeeds,
+      yc: params.yc || MONITORING_CONFIG.yc,
+      gdelt: params.gdelt || MONITORING_CONFIG.gdelt,
     };
 
     const promises = this.sources.map(async (source) => {
-      // @ts-expect-error - dynamic indexing
-      const sourceParams = config[source.name] || {}; 
+      const sourceParams = (config[source.name] || {}) as { enabled?: boolean };
       
       // Basic enabled check if param exists
       if (sourceParams.enabled === false) {

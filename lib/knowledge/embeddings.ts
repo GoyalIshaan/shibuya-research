@@ -32,28 +32,3 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
-
-/**
- * Generate embeddings for multiple texts in a batch
- */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not configured');
-  }
-
-  if (texts.length === 0) {
-    return [];
-  }
-
-  try {
-    const response = await openai.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: texts.map(text => text.replace(/\n/g, ' ').trim()),
-    });
-
-    return response.data.map(item => item.embedding);
-  } catch (error) {
-    console.error('Error generating embeddings:', error);
-    throw new Error(`Failed to generate embeddings: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}

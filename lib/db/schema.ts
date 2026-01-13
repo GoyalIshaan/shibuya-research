@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, doublePrecision, integer, index, uniqueIndex, uuid, vector, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, jsonb, doublePrecision, integer, index, uniqueIndex, uuid, vector } from 'drizzle-orm/pg-core';
 
 // 1. Signals Feed
 export const signals = pgTable('signals', {

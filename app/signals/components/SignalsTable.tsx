@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useSignalsStore } from '@/lib/store/signals';
+import { useSignalsStore, type StoreSignal } from '@/lib/store/signals';
 
 const TABS = [
   { id: 'all', label: 'All Signals' },
@@ -15,12 +15,13 @@ const TABS = [
 ];
 
 interface SignalsTableProps {
-  initialSignals: any[];
+  initialSignals: StoreSignal[];
   activeTab?: string;
 }
 
 export default function SignalsTable({ initialSignals, activeTab = 'all' }: SignalsTableProps) {
   const [filter, setFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'engagement' | 'alphabetical'>('date');
   const setSignals = useSignalsStore(state => state.setSignals);
 
   // Hydrate global store
@@ -31,17 +32,43 @@ export default function SignalsTable({ initialSignals, activeTab = 'all' }: Sign
   }, [initialSignals, setSignals]);
 
   // Server has already filtered by source/tab, so we only filter by text search here
-  const filtered = initialSignals.filter(s => {
+  const filtered = initialSignals.filter((s: StoreSignal) => {
     if (filter) {
         const searchLower = filter.toLowerCase();
         return (
-            s.text.toLowerCase().includes(searchLower) || 
+            s.text.toLowerCase().includes(searchLower) ||
             s.source.toLowerCase().includes(searchLower) ||
             String(s.metadata?.publisher || '').toLowerCase().includes(searchLower) ||
             String(s.metadata?.queryName || '').toLowerCase().includes(searchLower)
         );
     }
     return true;
+  });
+
+  // Sort signals based on selected option
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case 'engagement': {
+        // Calculate engagement score: upvotes (or score if no upvotes) + replies weighted at 10%
+        const aUpvotes = a.engagement?.upvotes ?? a.engagement?.score ?? 0;
+        const aReplies = a.engagement?.replies ?? 0;
+        const aScore = aUpvotes + (aReplies * 0.1);
+
+        const bUpvotes = b.engagement?.upvotes ?? b.engagement?.score ?? 0;
+        const bReplies = b.engagement?.replies ?? 0;
+        const bScore = bUpvotes + (bReplies * 0.1);
+
+        return bScore - aScore; // Descending
+      }
+      case 'alphabetical': {
+        const aText = a.text.split('\n')[0].toLowerCase();
+        const bText = b.text.split('\n')[0].toLowerCase();
+        return aText.localeCompare(bText); // Ascending
+      }
+      case 'date':
+      default:
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(); // Newest first
+    }
   });
 
   return (
@@ -73,15 +100,28 @@ export default function SignalsTable({ initialSignals, activeTab = 'all' }: Sign
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <span className="text-gray-400">🔍</span>
             </div>
-            <input 
-                type="text" 
+            <input
+                type="text"
                 placeholder={`Search ${filtered.length} signals in ${activeTab === 'all' ? 'all sources' : activeTab}...`}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:border-blue-300 focus:ring focus:ring-blue-200 sm:text-sm"
                 value={filter}
                 onChange={e => setFilter(e.target.value)}
             />
         </div>
-        <div className="text-sm text-gray-500 font-medium">
+        <div className="flex items-center gap-2">
+            <label htmlFor="sort" className="text-sm text-gray-500 font-medium whitespace-nowrap">Sort by:</label>
+            <select
+                id="sort"
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as 'date' | 'engagement' | 'alphabetical')}
+                className="border border-gray-300 rounded-md py-2 px-3 text-sm bg-white focus:outline-none focus:border-blue-300 focus:ring focus:ring-blue-200"
+            >
+                <option value="date">Date (Newest)</option>
+                <option value="engagement">Engagement</option>
+                <option value="alphabetical">A-Z</option>
+            </select>
+        </div>
+        <div className="text-sm text-gray-500 font-medium whitespace-nowrap">
             Showing {filtered.length} results
         </div>
       </div>
@@ -98,8 +138,8 @@ export default function SignalsTable({ initialSignals, activeTab = 'all' }: Sign
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filtered.length > 0 ? (
-                filtered.map((signal) => {
+            {sorted.length > 0 ? (
+                sorted.map((signal) => {
                   const sourceLabel = String(
                     signal.metadata?.publisher || signal.metadata?.queryName || signal.source
                   );
@@ -119,12 +159,31 @@ export default function SignalsTable({ initialSignals, activeTab = 'all' }: Sign
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 max-w-xl align-top">
                         <a href={signal.url || '#'} target="_blank" rel="noreferrer" className="block group">
-                            <div className="font-medium text-gray-900 group-hover:text-blue-600 group-hover:underline mb-1 line-clamp-2">
-                                {signal.text.split('\n')[0]} {/* Title first line */}
-                            </div>
-                            <div className="text-xs text-gray-400 line-clamp-2">
-                                {signal.text.split('\n').slice(1).join(' ')}
-                            </div>
+                            {/* Special formatting for app stores */}
+                            {(signal.source === 'appstore' || signal.source === 'playstore') ? (
+                                <>
+                                    {signal.metadata?.category && (
+                                        <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                                            {String(signal.metadata.category).replace(/_/g, ' ')}
+                                        </div>
+                                    )}
+                                    <div className="font-medium text-gray-900 group-hover:text-blue-600 group-hover:underline mb-1">
+                                        {signal.text.split('\n')[0].replace(/^(App Store|Play Store) Ranking #\d+:\s*/, '')}
+                                    </div>
+                                    <div className="text-xs text-gray-400 line-clamp-2">
+                                        {signal.text.split('\n').slice(1).join(' ')}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="font-medium text-gray-900 group-hover:text-blue-600 group-hover:underline mb-1 line-clamp-2">
+                                        {signal.text.split('\n')[0]} {/* Title first line */}
+                                    </div>
+                                    <div className="text-xs text-gray-400 line-clamp-2">
+                                        {signal.text.split('\n').slice(1).join(' ')}
+                                    </div>
+                                </>
+                            )}
                         </a>
                         {signal.tags && signal.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
@@ -138,9 +197,21 @@ export default function SignalsTable({ initialSignals, activeTab = 'all' }: Sign
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
                         <div className="flex flex-col gap-1 text-xs">
-                           {signal.engagement?.upvotes !== undefined && <span>⬆️ {signal.engagement.upvotes}</span>}
-                           {signal.engagement?.replies !== undefined && <span>💬 {signal.engagement.replies}</span>}
-                           {signal.engagement?.score !== undefined && <span>🔥 {signal.engagement.score}</span>}
+                           {/* Show ranking for app stores */}
+                           {(signal.source === 'appstore' || signal.source === 'playstore') && signal.metadata?.rank ? (
+                             <span className="font-medium text-gray-700">Rank #{signal.metadata.rank}</span>
+                           ) : (
+                             <>
+                               {signal.engagement?.upvotes !== undefined && signal.engagement.upvotes > 0 && <span>⬆️ {signal.engagement.upvotes}</span>}
+                               {signal.engagement?.replies !== undefined && signal.engagement.replies > 0 && <span>💬 {signal.engagement.replies}</span>}
+                               {signal.engagement?.score !== undefined && signal.engagement.score > 0 && <span>🔥 {signal.engagement.score}</span>}
+                               {(!signal.engagement || (
+                                 (!signal.engagement.upvotes || signal.engagement.upvotes === 0) &&
+                                 (!signal.engagement.replies || signal.engagement.replies === 0) &&
+                                 (!signal.engagement.score || signal.engagement.score === 0)
+                               )) && <span className="text-gray-400">-</span>}
+                             </>
+                           )}
                         </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">

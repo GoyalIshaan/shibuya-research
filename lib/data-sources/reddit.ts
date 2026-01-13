@@ -18,7 +18,7 @@ export class RedditClient implements DataSource {
         const posts = response.data?.data?.children || [];
 
         for (const post of posts) {
-          const { title, selftext, score, url, num_comments, created_utc, author, id, permalink } = post.data;
+          const { title, selftext, score, num_comments, created_utc, author, id, permalink } = post.data;
           
           results.push({
             source: 'reddit',

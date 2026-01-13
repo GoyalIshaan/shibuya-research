@@ -1,5 +1,4 @@
 import { Signal, DataSource } from './types';
-// import { MONITORING_CONFIG } from '@/lib/config';
 
 export class PlayStoreClient implements DataSource {
   name = 'playstore';
@@ -10,8 +9,21 @@ export class PlayStoreClient implements DataSource {
 
     try {
       const gplay = await import('google-play-scraper');
-      // Cast to any to avoid type issues with the library import
-      const scraper = gplay.default as any;
+      type PlayStoreApp = {
+        developer?: string;
+        url?: string;
+        title?: string;
+        summary?: string;
+        scoreText?: string;
+        price?: string;
+        icon?: string;
+      };
+      type PlayStoreScraper = {
+        category: Record<string, string>;
+        collection: Record<string, string>;
+        list: (options: { category: string; collection: string; num: number }) => Promise<PlayStoreApp[]>;
+      };
+      const scraper = gplay.default as unknown as PlayStoreScraper;
       const categories = params.categories?.length
         ? params.categories
         : ['MUSIC_AND_AUDIO'];
@@ -30,20 +42,20 @@ export class PlayStoreClient implements DataSource {
 
         console.log(`Play Store: Found ${apps.length} apps for ${categoryName}`);
 
-        for (const app of apps) {
-          const rank = apps.indexOf(app) + 1;
+        for (const [index, app] of apps.entries()) {
+          const rank = index + 1;
           
           results.push({
               source: 'playstore',
               type: 'ranking',
               authorHandle: app.developer,
               timestamp: new Date(),
-              url: app.url, 
+              url: app.url,
               text: `Play Store Ranking #${rank}: ${app.title}\n\n${app.summary}`,
-              engagement: { score: rank },
+              engagement: {},
               tags: ['App', 'Android', categoryName, ...(app.scoreText ? [app.scoreText] : [])],
-              rawPayload: app, 
-              metadata: { 
+              rawPayload: app,
+              metadata: {
                   rank: rank,
                   price: app.price || 'Free',
                   icon: app.icon,

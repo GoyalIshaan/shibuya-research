@@ -1,14 +1,28 @@
 import { create } from 'zustand';
-import { Signal } from '@/lib/data-sources/types';
+
+// Flexible signal type that accepts data from both DB and client
+export interface StoreSignal {
+  id?: string;
+  source: string;
+  type: string;
+  authorHandle?: string | null;
+  timestamp: Date | string;
+  url?: string | null;
+  text: string;
+  engagement?: { likes?: number; replies?: number; views?: number; upvotes?: number; score?: number } | null;
+  language?: string | null;
+  tags?: string[] | null;
+  metadata?: Record<string, unknown> | null;
+}
 
 interface SignalsStore {
-  signals: Signal[];
+  signals: StoreSignal[];
   isLoading: boolean;
   lastUpdated: Date | null;
   
   // Actions
-  setSignals: (signals: Signal[]) => void;
-  addSignals: (newSignals: Signal[]) => void;
+  setSignals: (signals: StoreSignal[]) => void;
+  addSignals: (newSignals: StoreSignal[]) => void;
   setIsLoading: (isLoading: boolean) => void;
   clearSignals: () => void;
 }

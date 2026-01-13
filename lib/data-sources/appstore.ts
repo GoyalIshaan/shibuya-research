@@ -17,21 +17,20 @@ export class AppStoreClient implements DataSource {
 
       console.log(`App Store: Found ${entries.length} entries`);
 
-      for (const app of entries) {
+      for (const [index, app] of entries.entries()) {
+        const rank = index + 1;
         results.push({
           source: 'appstore',
           type: 'ranking',
           authorHandle: app['im:artist']?.label,
           timestamp: new Date(), // Rankings are "current"
           url: app.link?.attributes?.href || app.id?.label,
-          text: `App Store Ranking #${entries.indexOf(app) + 1}: ${app['im:name']?.label}\n\n${app.summary?.label || ''}`,
-          engagement: {
-             score: entries.indexOf(app) + 1 
-          },
+          text: `App Store Ranking #${rank}: ${app['im:name']?.label}\n\n${app.summary?.label || ''}`,
+          engagement: {},
           tags: ['App', 'Mobile', app.category?.attributes?.label],
           rawPayload: app,
           metadata: {
-            rank: entries.indexOf(app) + 1,
+            rank: rank,
             category: app.category?.attributes?.label,
             price: app['im:price']?.label
           }

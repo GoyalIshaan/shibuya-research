@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Signal } from '@/lib/data-sources/types';
-import { useSignalsStore } from '@/lib/store/signals';
+import { useSignalsStore, type StoreSignal } from '@/lib/store/signals';
 
 export default function SyncButton() {
   const [loading, setLoading] = useState(false);
@@ -11,25 +10,25 @@ export default function SyncButton() {
     success: boolean;
     count: number;
     message: string;
-    signals?: Signal[];
+    signals?: StoreSignal[];
     error?: string;
   } | null>(null);
   const router = useRouter();
   const existingSignals = useSignalsStore(state => state.signals);
   const setSignals = useSignalsStore(state => state.setSignals);
 
-  const mergeSignals = (existing: Signal[], incoming: Signal[]) => {
-    const merged: Signal[] = [];
+  const mergeSignals = (existing: StoreSignal[], incoming: StoreSignal[]) => {
+    const merged: StoreSignal[] = [];
     const seen = new Set<string>();
 
-    const makeKey = (signal: Signal) => {
+    const makeKey = (signal: StoreSignal) => {
       if (signal.url) return `url:${signal.url}`;
       const time = new Date(signal.timestamp);
       const timeKey = Number.isNaN(time.getTime()) ? 'unknown' : time.toISOString();
       return `fallback:${signal.source}|${timeKey}|${signal.text.slice(0, 120)}`;
     };
 
-    const addSignal = (signal: Signal) => {
+    const addSignal = (signal: StoreSignal) => {
       const key = makeKey(signal);
       if (seen.has(key)) return;
       seen.add(key);
@@ -52,7 +51,7 @@ export default function SyncButton() {
     setLoading(true);
     setResult(null);
     
-    let totalSignals: Signal[] = [];
+    let totalSignals: StoreSignal[] = [];
 
     try {
       const res = await fetch('/api/trends/sync', { method: 'POST' });
@@ -74,13 +73,14 @@ export default function SyncButton() {
         message: `Synced all sources. Found ${totalSignals.length} new signals.`,
         signals: totalSignals
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Sync failed:', err);
+      const message = err instanceof Error ? err.message : String(err);
       setResult({
         success: false,
         count: 0,
         message: 'Sync failed.',
-        error: err?.message || 'Unknown error'
+        error: message || 'Unknown error'
       });
     } finally {
       setLoading(false);
@@ -122,7 +122,7 @@ export default function SyncButton() {
             Ingested Signals ({result.count})
           </h3>
           <div className="grid gap-4 max-h-[600px] overflow-y-auto pr-2">
-            {result.signals.map((signal: Signal, idx: number) => (
+            {result.signals.map((signal: StoreSignal, idx: number) => (
               <div 
                 key={`${signal.source}-${idx}`} 
                 className="p-4 border rounded-lg bg-gray-50 hover:bg-white hover:shadow-md transition-all duration-200"

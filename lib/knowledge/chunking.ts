@@ -81,18 +81,3 @@ export function chunkText(
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
-
-/**
- * Chunk text by token count instead of character count
- * This is more accurate for embedding models but more expensive to compute
- */
-export function chunkByTokens(
-  text: string,
-  maxTokens: number = 250,
-  overlapTokens: number = 50
-): TextChunk[] {
-  const chunkSize = maxTokens * 4; // Approximate chars per chunk
-  const overlap = overlapTokens * 4; // Approximate overlap in chars
-
-  return chunkText(text, chunkSize, overlap);
-}

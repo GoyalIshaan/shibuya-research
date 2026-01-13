@@ -1,9 +1,9 @@
 import { db } from '@/lib/db';
 import { signals } from '@/lib/db/schema';
-import { desc, inArray, eq } from 'drizzle-orm';
+import { desc, inArray } from 'drizzle-orm';
 import SignalsTable from './components/SignalsTable';
 import SyncButton from '@/app/components/SyncButton';
-import SignalsAutoSync from './components/SignalsAutoSync';
+import type { StoreSignal } from '@/lib/store/signals';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +13,7 @@ const TABS = [
   { id: 'hackernews', label: 'Hacker News', sources: ['hackernews'] },
   { id: 'producthunt', label: 'Product Hunt', sources: ['producthunt'] },
   { id: 'vc', label: 'VC & Blogs', sources: ['yc', 'vc_rss', 'gdelt'] },
-  { id: 'appstore', label: 'App Stores', sources: ['appstore', 'playstore'] },
+  { id: 'appstore', label: 'App Store', sources: ['appstore'] },
   { id: 'playstore', label: 'Play Store', sources: ['playstore'] },
 ];
 
@@ -22,30 +22,36 @@ export default async function SignalsPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const params = await searchParams;
-  const activeTabId = params.tab || 'all';
+  const { tab } = await searchParams;
+  const activeTabId = tab || 'all';
 
   // Find the selected tab config
   const activeTabConfig = TABS.find(t => t.id === activeTabId) || TABS[0];
 
-  // Construct query
-  let query = db.select().from(signals).orderBy(desc(signals.timestamp)).limit(200);
+  const baseQuery = db
+    .select()
+    .from(signals)
+    .orderBy(desc(signals.timestamp))
+    .limit(200);
 
-  // Apply source filter if not "all"
-  if (activeTabConfig.id !== 'all' && activeTabConfig.sources) {
-    // @ts-expect-error - dynamic where clause
-    query = db.select()
-      .from(signals)
-      .where(inArray(signals.source, activeTabConfig.sources))
-      .orderBy(desc(signals.timestamp))
-      .limit(200);
-  }
+  const rawSignals =
+    activeTabConfig.id !== 'all' && activeTabConfig.sources
+      ? await db
+          .select()
+          .from(signals)
+          .where(inArray(signals.source, activeTabConfig.sources))
+          .orderBy(desc(signals.timestamp))
+          .limit(200)
+      : await baseQuery;
 
-  const signalsData = await query;
+  // Cast to StoreSignal[] to satisfy type checker
+  const signalsData: StoreSignal[] = rawSignals.map(s => ({
+    ...s,
+    metadata: s.metadata as Record<string, unknown> | null,
+  }));
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <SignalsAutoSync />
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex justify-between items-center">
             <div>
@@ -55,7 +61,7 @@ export default async function SignalsPage({
         </div>
         <SyncButton />
       </div>
-      
+
       <SignalsTable initialSignals={signalsData} activeTab={activeTabId} />
     </div>
   );

@@ -32,9 +32,18 @@ interface RssConfig {
   }>;
 }
 
+type AtomLink = {
+  '@_href'?: string;
+  href?: string;
+  '@_rel'?: string;
+  rel?: string;
+};
+
+type RssLink = string | AtomLink | Array<AtomLink | string>;
+
 interface RssItem {
   title?: string;
-  link?: string;
+  link?: RssLink;
   pubDate?: string;
   updated?: string; // Atom
   description?: string;
@@ -134,8 +143,8 @@ export class RssFeedsClient implements DataSource {
     }
   }
 
-  private parseSitemap(xmlData: any): SitemapEntry[] {
-    const urls = xmlData?.urlset?.url;
+  private parseSitemap(xmlData: unknown): SitemapEntry[] {
+    const urls = (xmlData as { urlset?: { url?: SitemapEntry[] | SitemapEntry } })?.urlset?.url;
     if (!urls) return [];
     return Array.isArray(urls) ? urls : [urls];
   }
@@ -277,14 +286,21 @@ export class RssFeedsClient implements DataSource {
             
             // Link fallback
             let url = item.link;
-            if (typeof url !== 'string' && url && typeof url === 'object') {
-               // Atom link often is { @href: '...' }
-               url = (url as any)['@_href'] || (url as any).href; 
+            if (url && typeof url === 'object' && !Array.isArray(url)) {
+               url = url['@_href'] || url.href;
             }
-            if (Array.isArray(item.link)) {
-               // Atom might have multiple links
-               const alt = item.link.find((l: any) => l['@_rel'] === 'alternate');
-               url = alt ? alt['@_href'] : item.link[0];
+            if (Array.isArray(url)) {
+               const alternate = url.find((entry) =>
+                 typeof entry === 'object' &&
+                 entry !== null &&
+                 (entry['@_rel'] === 'alternate' || entry.rel === 'alternate')
+               );
+               const candidate = alternate ?? url.find((entry) => typeof entry === 'object' && entry !== null) ?? url[0];
+               if (typeof candidate === 'string') {
+                 url = candidate;
+               } else if (candidate) {
+                 url = candidate['@_href'] || candidate.href;
+               }
             }
 
             if (!url) continue;

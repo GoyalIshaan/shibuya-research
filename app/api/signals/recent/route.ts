@@ -1,24 +1,14 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { signals } from '@/lib/db/schema';
-import { desc } from 'drizzle-orm';
+import { searchSignals } from '@/lib/api/signals';
+import { errorResponse, successResponse } from '@/lib/api/responses';
 
 export async function GET() {
   try {
-    const recentSignals = await db.select()
-        .from(signals)
-        .orderBy(desc(signals.timestamp))
-        .limit(20);
+    const recentSignals = await searchSignals({ limit: 20, sort: 'newest' });
 
-    return NextResponse.json({ 
-        success: true, 
-        signals: recentSignals 
-    });
+    return successResponse({ signals: recentSignals });
   } catch (error) {
     console.error('Error fetching recent signals:', error);
-    return NextResponse.json({ 
-        success: false, 
-        error: 'Failed to fetch recent signals' 
-    }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to fetch recent signals';
+    return errorResponse(message, 500);
   }
 }

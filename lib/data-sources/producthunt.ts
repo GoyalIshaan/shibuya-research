@@ -29,16 +29,72 @@ export class ProductHuntClient implements DataSource {
       console.log(`Product Hunt: Found ${posts.length} entries`);
 
       for (const post of posts) {
+        // Extract text content from potentially nested XML objects
+        const getTextContent = (field: any): string => {
+          if (!field) return '';
+          if (typeof field === 'string') return field;
+
+          // Handle nested text nodes
+          if (field['#text']) {
+            const textContent = field['#text'];
+            // Recursively extract if #text is still an object
+            return typeof textContent === 'string' ? textContent : getTextContent(textContent);
+          }
+
+          if (field['#cdata-section']) {
+            const cdataContent = field['#cdata-section'];
+            return typeof cdataContent === 'string' ? cdataContent : getTextContent(cdataContent);
+          }
+
+          // If field is an array, join the text contents
+          if (Array.isArray(field)) {
+            return field.map(getTextContent).join(' ');
+          }
+
+          // If none of the above, check if it's an object with text-like properties
+          if (typeof field === 'object') {
+            // Try to find any text-like property
+            const textProp = Object.keys(field).find(k =>
+              k.toLowerCase().includes('text') ||
+              k.toLowerCase().includes('content') ||
+              k.toLowerCase().includes('value')
+            );
+            if (textProp && field[textProp]) {
+              return getTextContent(field[textProp]);
+            }
+          }
+
+          return '';
+        };
+
+        const content = getTextContent(post.content) || getTextContent(post.summary) || '';
+        const title = getTextContent(post.title) || 'Untitled';
+
+        // Validate that we extracted text properly
+        if (content.includes('[object Object]') || title.includes('[object Object]')) {
+          console.warn('Product Hunt: Failed to extract text properly for post:', {
+            title: post.title,
+            content: post.content,
+            summary: post.summary,
+            extractedTitle: title,
+            extractedContent: content
+          });
+          // Skip this entry rather than storing broken data
+          continue;
+        }
+
+        // Note: Product Hunt's public RSS feed does not include engagement metrics
+        // (votes, comments, etc.). To get engagement data, you would need to use
+        // the Product Hunt API or scrape the website.
+
         results.push({
           source: 'producthunt',
           type: 'launch',
           authorHandle: post.author?.name || 'Unknown',
           timestamp: new Date(post.updated || post.published || new Date()),
           url: post.link?.['@_href'] || post.id,
-          text: `${post.title}\n\n${post.content || post.summary || ''}`,
-          engagement: {
-            score: 0 
-          },
+          text: `${title}\n\n${content}`,
+          engagement: {},
           tags: ['Tech', 'Launch'],
           rawPayload: post,
           metadata: {
